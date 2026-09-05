@@ -1,8 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "File exchange service: upload, threat scanning, alerting"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
@@ -10,7 +9,66 @@ dependencies = [
     "celery[redis]>=5.6.3",
     "fastapi>=0.135.3",
     "pydantic>=2.12.5",
+    "pydantic-settings>=2.7.0",
     "python-multipart>=0.0.20",
     "sqlalchemy>=2.0.48",
     "uvicorn>=0.42.0",
 ]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=1.14.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+# The engine is a module-level singleton whose asyncpg pool binds to the first
+# event loop that touches it, so fixtures and tests must share one loop.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+# Alembic scaffolding, generated rather than written.
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "B008",    # Depends()/File()/Form() in defaults is the FastAPI idiom
+    "RUF001",  # Cyrillic in strings is intentional: the product speaks Russian
+    "RUF002",
+    "RUF003",
+]
+
+[tool.mypy]
+python_version = "3.14"
+files = ["src"]
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["celery.*"]
+ignore_missing_imports = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# The environment has to be populated before the settings are first read.
+"tests/integration/conftest.py" = ["E402"]
