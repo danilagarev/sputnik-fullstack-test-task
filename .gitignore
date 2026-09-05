@@ -11,3 +11,11 @@ wheels/
 .idea
 **/.DS_Store
 backend/storage/*
+# local runtime state produced by tooling, not project files
+data/
+.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+.env

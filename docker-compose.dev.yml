@@ -1,46 +1,86 @@
 services:
+  # A named volume takes its ownership from the image that first creates it,
+  # so a volume left over from before the API ran unprivileged would still be
+  # owned by root and uploads would fail. This hands it over once.
+  storage-init:
+    build: ./backend
+    user: root
+    command: [ "chown", "-R", "1001:1001", "/backend/storage" ]
+    volumes:
+      - backend-storage:/backend/storage
+    restart: "no"
+
   backend:
     build: ./backend
     command: uvicorn src.app:app --host 0.0.0.0 --reload --port 8000
     container_name: backend
     volumes:
       - ./backend:/backend
+      # Uploads must not live in the bind mount: the worker needs the same
+      # bytes, and outside dev there is no shared host directory.
+      - backend-storage:/backend/storage
     env_file: ".env.dev"
     ports:
       - "8000:8000"
     depends_on:
-      - backend-db
+      backend-db:
+        condition: service_healthy
+      backend-redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
 
   backend-worker:
     build: ./backend
-    command: [ 'celery', '-A', 'src.tasks.celery_app', 'worker', '-l', 'info' ]
+    command: [ 'celery', '-A', 'src.workers.celery_app', 'worker', '-l', 'info' ]
     container_name: backend-worker
     env_file: ".env.dev"
     volumes:
       - ./backend:/backend
+      - backend-storage:/backend/storage
     depends_on:
-      - backend-db
+      backend-db:
+        condition: service_healthy
+      backend-redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
 
   backend-db:
-    image: postgres:latest
+    # Pinned: up to postgres:17 the data lives in /var/lib/postgresql/data and
+    # that path is the declared VOLUME; from 18 it is the parent directory, so
+    # the correct mount point depends on the major version and `latest` made it
+    # change silently under the project.
+    image: postgres:18
     container_name: backend-db
     ports:
       - "5433:5433"
     env_file: ".env.dev"
     volumes:
       - backend-db-volume:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p $$PGPORT" ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   backend-redis:
-    image: redis:latest
+    image: redis:8-alpine
     container_name: backend-redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     container_name: frontend
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   backend-db-volume:
+  backend-storage:
