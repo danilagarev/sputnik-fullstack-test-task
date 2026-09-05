@@ -1,28 +1,25 @@
 import type { Metadata } from "next";
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container } from "react-bootstrap";
+import "bootstrap/dist/css/bootstrap.min.css";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: 'Тестовое задание Fullstack',
-    description: 'Тестовое задание Fullstack',
-  };
-}
+import { Providers } from "./providers";
 
-export default async function RootLayout({
-  children
+export const metadata: Metadata = {
+  title: "Файлообменник",
+  description: "Загрузка файлов, проверка на угрозы и лента алертов",
+};
+
+// The icon is served through the app/favicon.ico file convention, which is the
+// only form that survives basePath: a hand-written <link href="/favicon.ico">
+// misses the "/test" prefix, and "/public/..." was never a valid URL at all.
+export default function RootLayout({
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang='ru'>
-      <head>
-        <link rel="icon" href="/public/favicon.ico" sizes="any" />
-      </head>
+    <html lang="ru">
       <body>
-        <Container fluid className='p-0'>
-            {children}
-        </Container>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
